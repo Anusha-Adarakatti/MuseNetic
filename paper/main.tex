@@ -3,6 +3,7 @@
 \IEEEoverridecommandlockouts
 
 \usepackage{cite}
+\usepackage{booktabs}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
 \usepackage{algorithm}
@@ -67,7 +68,7 @@ LSTM, VAE, music generation, jazz, classical, deep learning
 \end{IEEEkeywords}
 
 \section{Introduction}
-Deep learning has been widely used in a variety of fields, including healthcare and agriculture, and has shown impressive results in challenging data-driven tasks \cite{fc1, fc2, fc3, fc4}.  Recent studies have demonstrated deep learning's capacity to handle high-dimensional data and identify significant patterns by using it for predictive modeling in the diagnosis of knee osteoarthritis and rice crop salinity resistance \cite{fc1, fc2, fc3, fc4}.  These developments offer a strong basis for investigating generative AI methods in simulation and data synthesis, especially in artistic applications such as music production, where deep learning models process multidimensional and sequential data to generate original results.  The science of music creation has changed dramatically in this regard, moving from rule-based systems to complex neural network structures that can create intricate musical compositions.\cite{mariani2024multisourcediffusionmodelssimultaneous, huang2024symbolicmusicgenerationnondifferentiable}.  In order to produce structured musical sequences, early methods depended on symbolic representations like MIDI. However, more recent developments have moved toward producing raw audio, allowing for richer and more expressive outputs.  While symbolic methods like SDMuse \cite{zhang2022sdmusestochasticdifferentialmusic} provide precise control over musical elements through MIDI-level editing, systems like MusicGen \cite{copet2024simplecontrollablemusicgeneration} and AudioLDM2 \cite{liu2024audioldm2learningholistic} use large-scale datasets to produce high-fidelity audio.  Notwithstanding these developments, striking a balance between the structured control offered by symbolic representations and the expressiveness of unprocessed audio synthesis remains a recurring difficulty in music generation.
+Deep learning has been widely used in a variety of fields, including healthcare and agriculture, and has shown impressive results in challenging data-driven tasks.  Recent studies have demonstrated deep learning's capacity to handle high-dimensional data and identify significant patterns by using it for predictive modeling in the diagnosis of knee osteoarthritis and rice crop salinity resistance \cite{fc1, fc2, fc3, fc4}.  These developments offer a strong basis for investigating generative AI methods in simulation and data synthesis, especially in artistic applications such as music production, where deep learning models process multidimensional and sequential data to generate original results.  The science of music creation has changed dramatically in this regard, moving from rule-based systems to complex neural network structures that can create intricate musical compositions.\cite{mariani2024multisourcediffusionmodelssimultaneous, huang2024symbolicmusicgenerationnondifferentiable}.  In order to produce structured musical sequences, early methods depended on symbolic representations like MIDI. However, more recent developments have moved toward producing raw audio, allowing for richer and more expressive outputs.  While symbolic methods like SDMuse \cite{zhang2022sdmusestochasticdifferentialmusic} provide precise control over musical elements through MIDI-level editing, systems like MusicGen \cite{copet2024simplecontrollablemusicgeneration} and AudioLDM2 \cite{liu2024audioldm2learningholistic} use large-scale datasets to produce high-fidelity audio.  Notwithstanding these developments, striking a balance between the structured control offered by symbolic representations and the expressiveness of unprocessed audio synthesis remains a recurring difficulty in music generation.
 
 Text-to-audio systems, like Noise2Music \cite{huang2023noise2musictextconditionedmusicgeneration}, produce high-quality audio, but they frequently lack interpretable control over musical qualities like chords, tempo, or dynamics. This presents a basic trade-off for current models.  The timbral richness of audio outputs is forfeited by symbolic techniques in favor of fine-grained structural manipulation.  Mustango \cite{melechovsky2024mustangocontrollabletexttomusicgeneration}, for instance, uses music-domain prompts to condition chord and tempo, but it is only applicable to brief 10-second fragments, which limits its use for lengthy works.  Moûsai \cite{schneider2023mousaitexttomusicgenerationlongcontext}, on the other hand, advocates for long-form generation but finds it difficult to exert fine-grained control over musical nuances.  These difficulties are made more difficult by a paucity of data, as datasets such as Noise2Music's MuLaMCap do not have symbolic annotations, while SDMuse's ailabs1k7 MIDI dataset has little variation, which makes cross-genre generalization difficult.
 
@@ -90,32 +91,38 @@ The preprocessing pipeline is designed to ensure compatibility between the input
 
 % Configuring VAE architecture
 \subsection{VAE Architecture}
-The VAE architecture comprises three core components: an encoder, a stochastic sampling layer, and a decoder. The encoder processes input spectrograms or piano rolls, mapping them to a latent space characterized by mean $\mu$ and log variance $\log\sigma^2$. The sampling layer employs the reparameterization trick to generate latent vectors $z$:
+The VAE architecture comprises three core components: an encoder, a stochastic sampling layer, and a decoder. The encoder processes input spectrograms or piano rolls, mapping them to a latent space characterized by mean $\mu$ and log variance $\log\sigma^2$. The sampling layer employs the reparameterization trick to generate latent vectors $z$, as shown in Equation~\ref{eq:vae_sampling}:
 \begin{equation}
+\label{eq:vae_sampling}
     z = \mu + \sigma \odot \epsilon, \quad \epsilon \sim \mathcal{N}(0, 1),
 \end{equation}
-where $\sigma = \exp(0.5 \cdot \log\sigma^2)$. The decoder reconstructs the input from $z$, using convolutional layers to capture local temporal and frequency patterns. The encoder consists of convolutional layers with $3 \times 3$ kernels, while the decoder employs transposed convolutional layers to upsample the latent representation, ensuring alignment with the input dimensions.
+where $\sigma = \exp(0.5 \cdot \log\sigma^2)$. In Equation~\ref{eq:vae_sampling}, the latent vector $z$ is sampled to enable stochastic generation. The decoder reconstructs the input from $z$, using convolutional layers to capture local temporal and frequency patterns. The encoder consists of convolutional layers with $3 \times 3$ kernels, while the decoder employs transposed convolutional layers to upsample the latent representation, ensuring alignment with the input dimensions.
+
 
 % Specifying VAE loss function
 \subsection{Loss Function}
-The VAE is trained using a composite loss function that balances reconstruction accuracy and latent space regularization. The reconstruction loss is computed as the binary cross-entropy between the input $X$ and the reconstructed output $\hat{X}$:
+The VAE is trained using a composite loss function that balances reconstruction accuracy and latent space regularization. The reconstruction loss, shown in Equation~\ref{eq:recon_loss}, is computed as the binary cross-entropy between the input $X$ and the reconstructed output $\hat{X}$:
 \begin{equation}
+\label{eq:recon_loss}
     \mathcal{L}_{\text{recon}} = -\frac{1}{N} \sum_{i=1}^N \left[ X_i \log \hat{X}_i + (1 - X_i) \log (1 - \hat{X}_i) \right],
 \end{equation}
-where $N$ represents the total number of time-pitch or time-frequency pairs. The Kullback-Leibler (KL) divergence regularizes the latent space to approximate a standard Gaussian:
+where $N$ represents the total number of time-pitch or time-frequency pairs. The Kullback-Leibler (KL) divergence, as presented in Equation~\ref{eq:kl_loss}, regularizes the latent space to approximate a standard Gaussian:
 \begin{equation}
+\label{eq:kl_loss}
     \mathcal{L}_{\text{KL}} = \frac{1}{2} \sum_{j=1}^d \left( 1 + \log\sigma_j^2 - \mu_j^2 - \sigma_j^2 \right),
 \end{equation}
-where $d$ is the latent space dimension. The total loss is:
+where $d$ is the latent space dimension. The total loss, given in Equation~\ref{eq:total_loss}, combines these terms:
 \begin{equation}
+\label{eq:total_loss}
     \mathcal{L} = \mathcal{L}_{\text{recon}} + \beta \cdot \mathcal{L}_{\text{KL}},
 \end{equation}
-with $\beta$ controlling the trade-off between reconstruction and regularization. A $\beta$ annealing schedule is used to prioritize reconstruction early in training, gradually increasing regularization strength.
+with $\beta$ controlling the trade-off between reconstruction and regularization. As shown in Equation~\ref{eq:total_loss}, a $\beta$ annealing schedule is used to prioritize reconstruction early in training, gradually increasing regularization strength.
 
 % Describing LSTM architecture
 \subsection{LSTM Architecture}
-The LSTM architecture is designed to model the temporal dependencies in piano roll sequences. At each timestep $t$, the LSTM updates its hidden state $h_t$ and cell state $c_t$ through a series of gated operations:
+The LSTM architecture is designed to model the temporal dependencies in piano roll sequences. At each timestep $t$, the LSTM updates its hidden state $h_t$ and cell state $c_t$ through a series of gated operations, as shown in Equation~\ref{eq:lstm}. 
 \begin{equation}
+\label{eq:lstm}
 \begin{aligned}
 f_t &= \sigma(W_f [h_{t-1}, x_t] + b_f) \\
 i_t &= \sigma(W_i [h_{t-1}, x_t] + b_i) \\
@@ -125,13 +132,14 @@ c_t &= f_t \odot c_{t-1} + i_t \odot \tilde{c}_t \\
 h_t &= o_t \odot \tanh(c_t)
 \end{aligned}
 \end{equation}
-where $f_t$, $i_t$, and $o_t$ represent the forget, input, and output gates, respectively, and $\odot$ denotes element-wise multiplication. This structure enables the LSTM to retain long-term dependencies, making it suitable for modeling the sequential nature of classical music.
+In Equation~\ref{eq:lstm}, $f_t$, $i_t$, and $o_t$ represent the forget, input, and output gates, respectively, and $\odot$ denotes element-wise multiplication. This structure enables the LSTM to retain long-term dependencies, making it suitable for modeling the sequential nature of classical music.
 
 \section{Implementation}
 \label{sec:implementation}
 
 % Detailing VAE implementation
 \subsection{VAE Implementation}
+As illustrated in Figure~\ref{fig:vae_arch}, the variational autoencoder (VAE) architecture comprises an encoder, a sampling layer, and a decoder.
 \begin{figure}[h]
     \centering
     \includegraphics[width=\linewidth]{vae_architecture.jpg}
@@ -139,10 +147,12 @@ where $f_t$, $i_t$, and $o_t$ represent the forget, input, and output gates, res
     \label{fig:vae_arch}
 \end{figure}
 
-The VAE encoder consists of two convolutional layers with $3 \times 3$ kernels and ReLU activation, designed to extract hierarchical features from spectrograms or piano rolls. The output is flattened and passed through dense layers to produce $\mu$ and $\log\sigma^2$. The decoder projects the latent vector $z$ into a tensor via a dense layer, followed by two transposed convolutional layers with $3 \times 3$ kernels and sigmoid activation to generate output probabilities in $[0, 1]$. Training is conducted using the Adam optimizer with a learning rate of $10^{-4}$, a batch size of 32, and early stopping based on validation loss to prevent overfitting. Gradients are clipped to a maximum norm of 1.0 to ensure training stability. The model is trained for 200 epochs, with $\beta$ annealed linearly from 0 to 1 over the first 50 epochs to balance reconstruction and regularization.
+The VAE encoder consists of two convolutional layers with $3 \times 3$ kernels and ReLU activation, designed to extract hierarchical features from spectrograms or piano rolls. The output is flattened and passed through dense layers to produce $\mu$ and $\log\sigma^2$. The decoder, as shown in Figure~\ref{fig:vae_arch}, projects the latent vector $z$ into a tensor via a dense layer, followed by two transposed convolutional layers with $3 \times 3$ kernels and sigmoid activation to generate output probabilities in $[0, 1]$. Training is conducted using the Adam optimizer with a learning rate of $10^{-4}$, a batch size of 32, and early stopping based on validation loss to prevent overfitting. Gradients are clipped to a maximum norm of 1.0 to ensure training stability. The model is trained for 200 epochs, with $\beta$ annealed linearly from 0 to 1 over the first 50 epochs to balance reconstruction and regularization.
+
 
 % Detailing LSTM implementation
 \subsection{LSTM Implementation}
+As depicted in Figure~\ref{fig:lstm_arch}, the Long Short-Term Memory (LSTM) network processes piano roll sequences as time-series data.
 \begin{figure}[h]
     \centering
     \includegraphics[width=\linewidth]{LSTM.jpg}
@@ -150,16 +160,17 @@ The VAE encoder consists of two convolutional layers with $3 \times 3$ kernels a
     \label{fig:lstm_arch}
 \end{figure}
 
-The LSTM network comprises three recurrent layers, each with 512 units, followed by a dense output layer with sigmoid activation. Training employs teacher forcing with a 50% probability to enhance learning of sequential patterns. The Adam optimizer is used with a learning rate of $3 \times 10^{-4}$ and a batch size of 64. The loss is computed as the binary cross-entropy summed over time steps. To mitigate overfitting, early stopping is applied based on validation loss, and gradient clipping is used with a maximum norm of 1.0. The model is trained for 200 epochs, ensuring robust convergence.
+The LSTM network comprises three recurrent layers, each with 512 units, followed by a dense output layer with sigmoid activation. The training process, outlined in Algorithm~\ref{alg:lstm_training}, employs teacher forcing with a 50\% probability to enhance learning of sequential patterns. The Adam optimizer is used with a learning rate of $3 \times 10^{-4}$ and a batch size of 64. The loss is computed as the binary cross-entropy summed over time steps. To mitigate overfitting, early stopping is applied based on validation loss, and gradient clipping is used with a maximum norm of 1.0. The model is trained for 200 epochs, ensuring robust convergence.
 
 \begin{algorithm}[H]
 \caption{LSTM Training}
+\label{alg:lstm_training}
 \begin{algorithmic}[1]
 \STATE Initialize hidden state $h_0$, cell state $c_0$
 \FOR{each sequence $X = (x_1, x_2, \dots, x_T)$}
     \FOR{$t = 1$ to $T$}
         \STATE Predict $\hat{x}_t = \text{LSTM}(x_{t-1}, h_{t-1}, c_{t-1})$
-        \STATE Update hidden state $h_t$, cell state $c_t$ using Equation (5)
+        \STATE Update hidden state $h_t$, cell state $c_t$ using Equation~\ref{eq:lstm}
         \STATE Calculate step loss $L_t = \text{BCE}(x_t, \hat{x}_t)$
     \ENDFOR
     \STATE Backpropagate through time: $\sum_{t=1}^{T} L_t$
@@ -167,7 +178,7 @@ The LSTM network comprises three recurrent layers, each with 512 units, followed
 \end{algorithmic}
 \end{algorithm}
 
-% Presenting model configurations
+The configurations for the LSTM model, alongside the VAE, are summarized in Table~\ref{tab:config}, highlighting key differences in architecture and training parameters.
 \begin{table}[h]
 \caption{Model Configurations}
 \label{tab:config}
@@ -197,15 +208,16 @@ The LSTM and VAE models were evaluated using two benchmark datasets: the GTZAN J
     \centering
     \caption{Performance Comparison of Music Generation Models}
     \label{tab:evaluation-metrics}
-    \begin{tabular}{lccc}
-        \toprule
+    \begin{tabular}{|l|c|c|c|}
+        \hline
         \textbf{Model} & \textbf{FAD $\downarrow$} & \textbf{PEAQ $\uparrow$} & \textbf{SNR (dB) $\uparrow$} \\
-        \midrule
+        \hline
         LSTM & 0.290 & 3.55 & 26.0 \\
-        VAE & 0.305 & 3.48 & 25.2 \\
-        \bottomrule
+        VAE  & 0.305 & 3.48 & 25.2 \\
+        \hline
     \end{tabular}
 \end{table}
+
 
 The quantitative results, presented in Table~\ref{tab:evaluation-metrics}, reveal distinct performance characteristics. The LSTM achieves a lower FAD (0.290) compared to the VAE (0.305), indicating superior perceptual similarity to reference jazz audio. Similarly, the LSTM’s PEAQ score of 3.55 and SNR of 26.0 dB surpass the VAE’s 3.48 and 25.2 dB, respectively, highlighting its strength in reconstructing audio textures with high fidelity and clarity. These results suggest that the LSTM’s sequential modeling capabilities not only excel in symbolic generation, aligning well with the structured nature of Chopin’s compositions, but also contribute to improved performance in audio synthesis tasks compared to the VAE.
 
