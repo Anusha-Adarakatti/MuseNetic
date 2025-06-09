@@ -64,10 +64,10 @@ The project uses two different datasets:
 
 ```python
 # LSTM model dataset path
-classical_path = "../input/classical-music-midi/chopin/"
+classical_path = "./classical-music-midi/chopin/"
 
 # VAE model dataset path
-jazz_path = "../input/gtzan-dataset-music-genre-classification/Data/genres_original"
+jazz_path = "./gtzan-dataset-music-genre-classification/Data/genres_original"
 ```
 
 ---
